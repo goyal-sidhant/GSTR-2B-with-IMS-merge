@@ -13,8 +13,11 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTextEdit, 
     QHBoxLayout, QPushButton
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QTextCursor
+from PyQt5.QtWidgets import QGroupBox, QLabel, QProgressBar
+from PyQt5.QtCore import Qt, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
+
+from core.models import ProgressInfo
 
 class LogPanel(QWidget):
     """Log panel widget for displaying processing logs."""
@@ -100,6 +103,7 @@ class LogPanel(QWidget):
             message: Log message
         """
 
+        # Emit to main thread slot which handles UI updates
         self.log_signal.emit(message, level)
 
         # Format the message
@@ -139,23 +143,23 @@ class LogPanel(QWidget):
 
     def _add_log_safe(self, message: str, level: str = "INFO"):
         """Actually add the log message (called in main thread)."""
-    from datetime import datetime
-    
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    
-    # Color based on level
-    colors = {
-        "INFO": "#4fc3f7",
-        "SUCCESS": "#81c784", 
-        "WARNING": "#ffb74d",
-        "ERROR": "#e57373"
-    }
-    color = colors.get(level, "#ffffff")
-    
-    formatted = f'<span style="color: #888;">[{timestamp}]</span> <span style="color: {color};">[{level}]</span> {message}'
-    
-    self.log_text.append(formatted)
-    self.log_text.moveCursor(QTextCursor.End)
+        from datetime import datetime
+
+        timestamp = datetime.now().strftime("%H:%M:%S")
+
+        # Color based on level
+        colors = {
+            "INFO": "#4fc3f7",
+            "SUCCESS": "#81c784",
+            "WARNING": "#ffb74d",
+            "ERROR": "#e57373"
+        }
+        color = colors.get(level, "#ffffff")
+
+        formatted = f'<span style="color: #888;">[{timestamp}]</span> <span style="color: {color};">[{level}]</span> {message}'
+
+        self.log_text.append(formatted)
+        self.log_text.moveCursor(QTextCursor.End)
     
     def update_progress(self, progress: ProgressInfo):
         """
