@@ -10,23 +10,24 @@ Shows:
 """
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-    QTextEdit, QProgressBar, QLabel, QPushButton
+    QWidget, QVBoxLayout, QTextEdit, 
+    QHBoxLayout, QPushButton
 )
-from PyQt5.QtCore import Qt, pyqtSlot
-from PyQt5.QtGui import QTextCursor, QColor, QTextCharFormat
-
-from core.models import ProgressInfo
-
+from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QTextCursor
 
 class LogPanel(QWidget):
-    """
-    Log panel with progress bar and log messages.
-    """
+    """Log panel widget for displaying processing logs."""
+    
+    # Signal for thread-safe logging
+    log_signal = pyqtSignal(str, str)  # message, level
     
     def __init__(self, parent=None):
         super().__init__(parent)
         self._setup_ui()
+        
+        # Connect signal to slot for thread-safe updates
+        self.log_signal.connect(self._add_log_safe)
     
     def _setup_ui(self):
         """Set up the widget UI."""
@@ -98,6 +99,9 @@ class LogPanel(QWidget):
             level: Log level (INFO, WARNING, ERROR, DEBUG)
             message: Log message
         """
+
+        self.log_signal.emit(message, level)
+
         # Format the message
         formatted = f"{timestamp} | {level:7s} | {message}"
         
@@ -132,6 +136,26 @@ class LogPanel(QWidget):
         # Scroll to bottom
         self.log_text.setTextCursor(cursor)
         self.log_text.ensureCursorVisible()
+
+    def _add_log_safe(self, message: str, level: str = "INFO"):
+        """Actually add the log message (called in main thread)."""
+    from datetime import datetime
+    
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    
+    # Color based on level
+    colors = {
+        "INFO": "#4fc3f7",
+        "SUCCESS": "#81c784", 
+        "WARNING": "#ffb74d",
+        "ERROR": "#e57373"
+    }
+    color = colors.get(level, "#ffffff")
+    
+    formatted = f'<span style="color: #888;">[{timestamp}]</span> <span style="color: {color};">[{level}]</span> {message}'
+    
+    self.log_text.append(formatted)
+    self.log_text.moveCursor(QTextCursor.End)
     
     def update_progress(self, progress: ProgressInfo):
         """
