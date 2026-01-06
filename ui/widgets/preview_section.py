@@ -2,174 +2,120 @@
 """
 Preview Section Widget for GST Processing Tool v5.0
 
-Shows before processing:
+Compact horizontal stats bar showing:
 - Merge count
 - Create count
 - Copy count
-- Extra files list
+- Extra files count
 """
 
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
-    QLabel, QListWidget, QFrame
+    QWidget, QHBoxLayout, QLabel, QFrame, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 
-from typing import List
 from core.models import PreviewData
 
 
-class PreviewSection(QGroupBox):
+class PreviewSection(QFrame):
     """
-    Preview section showing processing breakdown and extra files.
+    Compact preview section showing processing breakdown.
+    Horizontal layout with colored badges that spread evenly.
     """
-    
+
     def __init__(self, parent=None):
-        super().__init__("📊 Preview", parent)
+        super().__init__(parent)
+        self.setFrameShape(QFrame.StyledPanel)
+        self.setFixedHeight(50)
+        self.setStyleSheet("""
+            PreviewSection {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+            }
+        """)
         self._setup_ui()
-    
+
     def _setup_ui(self):
         """Set up the widget UI."""
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 15, 10, 10)
-        layout.setSpacing(10)
-        
-        # Counts row
-        counts_layout = QHBoxLayout()
-        counts_layout.setSpacing(20)
-        
-        # Merge count
-        self.merge_frame = self._create_count_card("📁 Merge", "0", "#4caf50")
-        counts_layout.addWidget(self.merge_frame)
-        
-        # Create count
-        self.create_frame = self._create_count_card("📝 Create", "0", "#2196f3")
-        counts_layout.addWidget(self.create_frame)
-        
-        # Copy count
-        self.copy_frame = self._create_count_card("⚠️ Copy", "0", "#ff9800")
-        counts_layout.addWidget(self.copy_frame)
-        
-        # Extra files count
-        self.extra_frame = self._create_count_card("📄 Extra", "0", "#9e9e9e")
-        counts_layout.addWidget(self.extra_frame)
-        
-        counts_layout.addStretch()
-        layout.addLayout(counts_layout)
-        
-        # Extra files section (collapsible-like)
-        self.extra_files_label = QLabel("⚠️ Extra Files (won't be processed):")
-        self.extra_files_label.setStyleSheet("font-weight: bold; color: #ff9800;")
-        self.extra_files_label.hide()
-        layout.addWidget(self.extra_files_label)
-        
-        self.extra_files_list = QListWidget()
-        self.extra_files_list.setMaximumHeight(80)
-        self.extra_files_list.hide()
-        layout.addWidget(self.extra_files_list)
-    
-    def _create_count_card(self, title: str, count: str, color: str) -> QFrame:
-        """Create a count card widget."""
-        frame = QFrame()
-        frame.setStyleSheet(f"""
-            QFrame {{
-                background-color: {color}20;
-                border: 1px solid {color};
-                border-radius: 6px;
-                padding: 5px;
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(15, 8, 15, 8)
+        layout.setSpacing(15)
+
+        # Stats label
+        stats_label = QLabel("Statistics:")
+        stats_label.setStyleSheet("font-weight: bold; color: #495057;")
+        layout.addWidget(stats_label)
+
+        # Merge badge
+        self.merge_badge = self._create_badge("Merge", "0", "#198754", "#d1e7dd")
+        layout.addWidget(self.merge_badge)
+
+        # Create badge
+        self.create_badge = self._create_badge("Create", "0", "#0d6efd", "#cfe2ff")
+        layout.addWidget(self.create_badge)
+
+        # Copy badge
+        self.copy_badge = self._create_badge("Copy", "0", "#fd7e14", "#ffe5d0")
+        layout.addWidget(self.copy_badge)
+
+        # Extra badge
+        self.extra_badge = self._create_badge("Extra", "0", "#6c757d", "#e9ecef")
+        layout.addWidget(self.extra_badge)
+
+        # Stretch to push badges to the left but not too far
+        layout.addStretch(1)
+
+    def _create_badge(self, label: str, count: str, text_color: str, bg_color: str) -> QWidget:
+        """Create a compact badge widget."""
+        container = QWidget()
+        container.setStyleSheet(f"""
+            QWidget {{
+                background-color: {bg_color};
+                border-radius: 4px;
             }}
         """)
-        
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(10, 5, 10, 5)
-        layout.setSpacing(2)
-        
-        # Title
-        title_label = QLabel(title)
-        title_label.setStyleSheet(f"font-size: 9pt; color: {color};")
-        title_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title_label)
-        
+
+        badge_layout = QHBoxLayout(container)
+        badge_layout.setContentsMargins(12, 4, 12, 4)
+        badge_layout.setSpacing(8)
+
+        # Label
+        label_widget = QLabel(f"{label}:")
+        label_widget.setStyleSheet(f"color: {text_color}; font-weight: 500; background: transparent;")
+        badge_layout.addWidget(label_widget)
+
         # Count
-        count_label = QLabel(count)
-        count_label.setObjectName("count")
-        count_label.setStyleSheet(f"font-size: 16pt; font-weight: bold; color: {color};")
-        count_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(count_label)
-        
-        frame.setFixedWidth(100)
-        return frame
-    
-    def _update_card_count(self, frame: QFrame, count: int):
-        """Update the count in a card."""
-        count_label = frame.findChild(QLabel, "count")
+        count_widget = QLabel(count)
+        count_widget.setObjectName("count")
+        count_widget.setStyleSheet(f"color: {text_color}; font-weight: bold; font-size: 14pt; background: transparent;")
+        badge_layout.addWidget(count_widget)
+
+        return container
+
+    def _update_badge_count(self, badge: QWidget, count: int):
+        """Update the count in a badge."""
+        count_label = badge.findChild(QLabel, "count")
         if count_label:
             count_label.setText(str(count))
-    
+
     def update_preview(self, preview_data: PreviewData):
-        """
-        Update the preview display.
-        
-        Args:
-            preview_data: PreviewData object with counts and extra files
-        """
-        # Update counts
-        self._update_card_count(self.merge_frame, preview_data.merge_count)
-        self._update_card_count(self.create_frame, preview_data.create_count)
-        self._update_card_count(self.copy_frame, preview_data.copy_count)
-        self._update_card_count(self.extra_frame, preview_data.extra_files_count)
-        
-        # Update extra files list
-        self.extra_files_list.clear()
-        
-        if preview_data.extra_files:
-            self.extra_files_label.show()
-            self.extra_files_list.show()
-            for filename in preview_data.extra_files:
-                self.extra_files_list.addItem(f"• {filename}")
-        else:
-            self.extra_files_label.hide()
-            self.extra_files_list.hide()
-    
+        """Update the preview display."""
+        self._update_badge_count(self.merge_badge, preview_data.merge_count)
+        self._update_badge_count(self.create_badge, preview_data.create_count)
+        self._update_badge_count(self.copy_badge, preview_data.copy_count)
+        self._update_badge_count(self.extra_badge, preview_data.extra_files_count)
+
     def set_counts(self, merge: int, create: int, copy: int, extra: int):
-        """
-        Set counts directly.
-        
-        Args:
-            merge: Merge count
-            create: Create count
-            copy: Copy count
-            extra: Extra files count
-        """
-        self._update_card_count(self.merge_frame, merge)
-        self._update_card_count(self.create_frame, create)
-        self._update_card_count(self.copy_frame, copy)
-        self._update_card_count(self.extra_frame, extra)
-    
-    def set_extra_files(self, files: List[str]):
-        """
-        Set extra files list.
-        
-        Args:
-            files: List of extra file names
-        """
-        self.extra_files_list.clear()
-        
-        if files:
-            self.extra_files_label.show()
-            self.extra_files_list.show()
-            for filename in files:
-                self.extra_files_list.addItem(f"• {filename}")
-        else:
-            self.extra_files_label.hide()
-            self.extra_files_list.hide()
-    
+        """Set counts directly."""
+        self._update_badge_count(self.merge_badge, merge)
+        self._update_badge_count(self.create_badge, create)
+        self._update_badge_count(self.copy_badge, copy)
+        self._update_badge_count(self.extra_badge, extra)
+
     def clear(self):
         """Clear all preview data."""
-        self._update_card_count(self.merge_frame, 0)
-        self._update_card_count(self.create_frame, 0)
-        self._update_card_count(self.copy_frame, 0)
-        self._update_card_count(self.extra_frame, 0)
-        self.extra_files_list.clear()
-        self.extra_files_label.hide()
-        self.extra_files_list.hide()
+        self._update_badge_count(self.merge_badge, 0)
+        self._update_badge_count(self.create_badge, 0)
+        self._update_badge_count(self.copy_badge, 0)
+        self._update_badge_count(self.extra_badge, 0)

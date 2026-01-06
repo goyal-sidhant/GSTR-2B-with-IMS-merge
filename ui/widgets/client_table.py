@@ -10,6 +10,7 @@ This is the main client selection table that shows:
 - Category (Merge/Create/Copy)
 
 Features:
+- Quick filter buttons (All/Both/GSTR Only/IMS Only)
 - Select All / Deselect All buttons
 - Shows selected count in title
 - Color coding by category
@@ -18,7 +19,8 @@ Features:
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGroupBox,
     QTableWidget, QTableWidgetItem, QHeaderView,
-    QPushButton, QCheckBox, QLabel, QAbstractItemView
+    QPushButton, QCheckBox, QLabel, QAbstractItemView,
+    QButtonGroup, QFrame
 )
 from PyQt5.QtCore import pyqtSignal, Qt
 from PyQt5.QtGui import QColor, QBrush
@@ -31,56 +33,95 @@ from utils.constants import CategoryType, FileStatus
 class ClientTable(QGroupBox):
     """
     Client selection table widget.
-    
+
     Signals:
         selection_changed: Emitted when selection changes (selected_count: int)
+        filter_changed: Emitted when quick filter is applied (filter_type: str)
     """
-    
+
     # Signals
     selection_changed = pyqtSignal(int)
-    
+    filter_changed = pyqtSignal(str)
+
     # Column indices
     COL_CHECKBOX = 0
     COL_NAME = 1
     COL_STATE = 2
     COL_STATUS = 3
     COL_CATEGORY = 4
-    
+
+    # Filter types
+    FILTER_BOTH = "Both"
+    FILTER_GSTR_ONLY = "GSTR Only"
+    FILTER_IMS_ONLY = "IMS Only"
+
     def __init__(self, parent=None):
         super().__init__("Client Selection", parent)
         self._clients: List[ClientInfo] = []
+        self._current_filter = None
         self._setup_ui()
-    
+
     def _setup_ui(self):
         """Set up the widget UI."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 15, 10, 10)
         layout.setSpacing(10)
-        
-        # Header with buttons
+
+        # ============================================
+        # Quick Filter Buttons Row
+        # ============================================
+        filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(8)
+
+        filter_label = QLabel("Quick Select:")
+        filter_label.setStyleSheet("font-weight: bold; color: #495057;")
+        filter_layout.addWidget(filter_label)
+
+        # Both Files button (clients with both GSTR-2B and IMS)
+        self.filter_both_btn = QPushButton("Both Files")
+        self.filter_both_btn.setToolTip("Select clients with both GSTR-2B and IMS files (Merge)")
+        self.filter_both_btn.clicked.connect(lambda: self._apply_filter(self.FILTER_BOTH))
+        filter_layout.addWidget(self.filter_both_btn)
+
+        # GSTR-2B Only button
+        self.filter_gstr_btn = QPushButton("GSTR-2B Only")
+        self.filter_gstr_btn.setToolTip("Select clients with only GSTR-2B file (Copy)")
+        self.filter_gstr_btn.clicked.connect(lambda: self._apply_filter(self.FILTER_GSTR_ONLY))
+        filter_layout.addWidget(self.filter_gstr_btn)
+
+        # IMS Only button
+        self.filter_ims_btn = QPushButton("IMS Only")
+        self.filter_ims_btn.setToolTip("Select clients with only IMS file (Create)")
+        self.filter_ims_btn.clicked.connect(lambda: self._apply_filter(self.FILTER_IMS_ONLY))
+        filter_layout.addWidget(self.filter_ims_btn)
+
+        filter_layout.addStretch()
+        layout.addLayout(filter_layout)
+
+        # ============================================
+        # Header with selection buttons
+        # ============================================
         header_layout = QHBoxLayout()
-        
+
         # Selected count label
         self.count_label = QLabel("0 of 0 selected")
         self.count_label.setStyleSheet("font-weight: bold;")
         header_layout.addWidget(self.count_label)
-        
+
         header_layout.addStretch()
-        
+
         # Select All button
         self.select_all_btn = QPushButton("Select All")
-        self.select_all_btn.setFixedWidth(100)
         self.select_all_btn.setProperty("secondary", True)
         self.select_all_btn.clicked.connect(self._select_all)
         header_layout.addWidget(self.select_all_btn)
-        
+
         # Deselect All button
         self.deselect_all_btn = QPushButton("Deselect All")
-        self.deselect_all_btn.setFixedWidth(100)
         self.deselect_all_btn.setProperty("secondary", True)
         self.deselect_all_btn.clicked.connect(self._deselect_all)
         header_layout.addWidget(self.deselect_all_btn)
-        
+
         layout.addLayout(header_layout)
         
         # Table
@@ -221,6 +262,39 @@ class ClientTable(QGroupBox):
                 checkbox = checkbox_widget.findChild(QCheckBox)
                 if checkbox:
                     checkbox.setChecked(False)
+
+    def _apply_filter(self, filter_type: str):
+        """
+        Apply quick filter to select clients based on file status.
+
+        Args:
+            filter_type: One of FILTER_BOTH, FILTER_GSTR_ONLY, FILTER_IMS_ONLY
+        """
+        self._current_filter = filter_type
+
+        for row in range(self.table.rowCount()):
+            if row >= len(self._clients):
+                continue
+
+            client = self._clients[row]
+            should_select = False
+
+            if filter_type == self.FILTER_BOTH:
+                should_select = client.file_status == FileStatus.BOTH.value
+            elif filter_type == self.FILTER_GSTR_ONLY:
+                should_select = client.file_status == FileStatus.GSTR_ONLY.value
+            elif filter_type == self.FILTER_IMS_ONLY:
+                should_select = client.file_status == FileStatus.IMS_ONLY.value
+
+            # Update checkbox
+            checkbox_widget = self.table.cellWidget(row, self.COL_CHECKBOX)
+            if checkbox_widget:
+                checkbox = checkbox_widget.findChild(QCheckBox)
+                if checkbox:
+                    checkbox.setChecked(should_select)
+
+        # Emit filter changed signal
+        self.filter_changed.emit(filter_type)
     
     def get_selected_clients(self) -> List[ClientInfo]:
         """
@@ -259,3 +333,7 @@ class ClientTable(QGroupBox):
         self.table.setEnabled(enabled)
         self.select_all_btn.setEnabled(enabled)
         self.deselect_all_btn.setEnabled(enabled)
+        # Filter buttons
+        self.filter_both_btn.setEnabled(enabled)
+        self.filter_gstr_btn.setEnabled(enabled)
+        self.filter_ims_btn.setEnabled(enabled)

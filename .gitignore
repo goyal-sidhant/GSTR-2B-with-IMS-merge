@@ -12,6 +12,8 @@ venv/
 env/
 .env/
 ENV/
+.claude
+nul
 
 # IDE and editor settings
 .vscode/
