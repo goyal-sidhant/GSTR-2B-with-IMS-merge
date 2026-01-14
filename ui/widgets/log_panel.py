@@ -14,7 +14,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout, QPushButton, QGroupBox, QLabel, QProgressBar,
     QSizePolicy
 )
-from PyQt5.QtCore import Qt, pyqtSlot
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
 
 from core.models import ProgressInfo
@@ -23,9 +23,14 @@ from core.models import ProgressInfo
 class LogPanel(QWidget):
     """Log panel widget for displaying processing logs."""
 
+    # Signal for thread-safe logging (timestamp, level, message)
+    log_received = pyqtSignal(str, str, str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._setup_ui()
+        # Connect signal to slot for thread-safe UI updates
+        self.log_received.connect(self._append_log_message)
 
     def _setup_ui(self):
         """Set up the widget UI."""
@@ -94,15 +99,23 @@ class LogPanel(QWidget):
         log_layout.addLayout(button_row)
         layout.addWidget(log_group, stretch=1)
 
-    @pyqtSlot(str, str, str)
     def add_log_message(self, timestamp: str, level: str, message: str):
         """
-        Add a log message to the display.
+        Thread-safe method to add a log message.
+        Emits signal to update UI on the main thread.
 
         Args:
             timestamp: Time string (HH:MM:SS)
             level: Log level (INFO, WARNING, ERROR, DEBUG)
             message: Log message
+        """
+        self.log_received.emit(timestamp, level, message)
+
+    @pyqtSlot(str, str, str)
+    def _append_log_message(self, timestamp: str, level: str, message: str):
+        """
+        Actually append the message to the log display.
+        This slot runs on the main thread, ensuring thread-safe GUI updates.
         """
         # Format the message
         formatted = f"[{timestamp}] {level:7s} | {message}"
